@@ -1,658 +1,921 @@
-from sqlalchemy import Column, Integer, String, Date, Float
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
 import tkinter as tk
+import tkinter.ttk as ttk
 from tkinter import messagebox
-from datetime import datetime
-
-Base = declarative_base()
-
-# create a database engine
-engine = create_engine('sqlite:///pharmacy.db', echo=True)
-Base.metadata.create_all(engine)
-
-
-class Medication(Base):
-    __tablename__ = 'medications'
-
-    id = Column(Integer, primary_key=True)
-    name = Column(String)
-    strength = Column(String)
-    stock_level = Column(Integer)
-    expiry_date = Column(Date)
-    reorder_point = Column(Integer)
-
-class Prescription(Base):
-    __tablename__ = 'prescriptions'
-
-    id = Column(Integer, primary_key=True)
-    medication_id = Column(Integer)
-    patient_id = Column(Integer)
-    quantity = Column(Integer)
-    date_prescribed = Column(Date)
-
-class Patient(Base):
-    __tablename__ = 'patients'
-
-    id = Column(Integer, primary_key=True)
-    name = Column(String)
-    date_of_birth = Column(Date)
-    allergies = Column(String)
-
-class Bill(Base):
-    __tablename__ = 'bills'
-
-    id = Column(Integer, primary_key=True)
-    patient_id = Column(Integer)
-    total_cost = Column(Float)
-    date = Column(Date)
-
-class Payment(Base):
-    __tablename__ = 'payments'
-
-    id = Column(Integer, primary_key=True)
-    bill_id = Column(Integer)
-    amount = Column(Float)
-    date = Column(Date)
-
-class Doctor(Base):
-    __tablename__ = 'doctors'
-
-    id = Column(Integer, primary_key=True)
-    name = Column(String)
-    specialty = Column(String)
-    phone = Column(String)
-    email = Column(String)
-
-class Nurse(Base):
-    __tablename__ = 'nurses'
-
-    id = Column(Integer, primary_key=True)
-    name = Column(String)
-    phone = Column(String)
-    email = Column(String)
-
-# functions to interact with the database
-from sqlalchemy.orm import Session
-
-def add_medication(session: Session, name: str, strength: str, stock_level: int, expiry_date: Date, reorder_point: int):
-    medication = Medication(name=name, strength=strength, stock_level=stock_level, expiry_date=expiry_date, reorder_point=reorder_point)
-    session.add(medication)
-    session.commit()
-
-def edit_medication(session: Session, medication_id: int, name: str, strength: str, stock_level: int, expiry_date: Date, reorder_point: int):
-    medication = session.query(Medication).filter(Medication.id == medication_id).first()
-    if medication:
-        medication.name = name
-        medication.strength = strength
-        medication.stock_level = stock_level
-        medication.expiry_date = expiry_date
-        medication.reorder_point = reorder_point
-        session.commit()
-
-def search_medication(session: Session, name: str):
-    return session.query(Medication).filter(Medication.name.contains(name)).all()
-
-def delete_medication(session: Session, medication_id: int):
-    medication = session.query(Medication).filter(Medication.id == medication_id).first()
-    if medication:
-        session.delete(medication)
-        session.commit()
-
-def track_stock_levels(session: Session):
-    return session.query(Medication.name, Medication.stock_level).all()
-
-def track_expiry_dates(session: Session):
-    return session.query(Medication.name, Medication.expiry_date).all()
-
-def track_reorder_points(session: Session):
-    return session.query(Medication.name, Medication.reorder_point).all()
-
-def generate_inventory_report(session: Session):
-    medications = session.query(Medication).all()
-    report = []
-    for medication in medications:
-        report.append({
-            'name': medication.name,
-            'strength': medication.strength,
-            'stock_level': medication.stock_level,
-            'expiry_date': medication.expiry_date,
-            'reorder_point': medication.reorder_point
-        })
-    return report
-
-def generate_alerts(session: Session):
-    alerts = []
-    medications = session.query(Medication).all()
-    for medication in medications:
-        if medication.stock_level <= medication.reorder_point:
-            alerts.append(f"Low stock alert for {medication.name}")
-        if medication.expiry_date <= Date.today():
-            alerts.append(f"Expired medication alert for {medication.name}")
-    return alerts
-
-# functions to manage prescriptions
-def add_prescription(session: Session, medication_id: int, patient_id: int, quantity: int, date_prescribed: Date):
-    prescription = Prescription(medication_id=medication_id, patient_id=patient_id, quantity=quantity, date_prescribed=date_prescribed)
-    session.add(prescription)
-    session.commit()
-
-def verify_prescription(session: Session, prescription_id: int):
-    prescription = session.query(Prescription).filter(Prescription.id == prescription_id).first()
-    if prescription:
-        medication = session.query(Medication).filter(Medication.id == prescription.medication_id).first()
-        if medication and medication.stock_level >= prescription.quantity:
-            return True
-    return False
-
-def get_patient_history(session: Session, patient_id: int):
-    prescriptions = session.query(Prescription).filter(Prescription.patient_id == patient_id).all()
-    history = []
-    for prescription in prescriptions:
-        medication = session.query(Medication).filter(Medication.id == prescription.medication_id).first()
-        if medication:
-            history.append({
-                'medication_name': medication.name,
-                'quantity': prescription.quantity,
-                'date_prescribed': prescription.date_prescribed
-            })
-    return history
-
-def get_patient_allergies(session: Session, patient_id: int):
-    patient = session.query(Patient).filter(Patient.id == patient_id).first()
-    if patient:
-        return patient.allergies
-
-def generate_label(session: Session, prescription_id: int):
-    prescription = session.query(Prescription).filter(Prescription.id == prescription_id).first()
-    if prescription:
-        medication = session.query(Medication).filter(Medication.id == prescription.medication_id).first()
-        patient = session.query(Patient).filter(Patient.id == prescription.patient_id).first()
-        if medication and patient:
-            label = f"Patient: {patient.name}\nMedication: {medication.name}\nQuantity: {prescription.quantity}\nDate Prescribed: {prescription.date_prescribed}"
-            return label
-
-# function to manage patient profiles
-def add_patient(session: Session, name: str, date_of_birth: Date, allergies: str):
-    patient = Patient(name=name, date_of_birth=date_of_birth, allergies=allergies)
-    session.add(patient)
-    session.commit()
-
-def edit_patient(session: Session, patient_id: int, name: str, date_of_birth: Date, allergies: str):
-    patient = session.query(Patient).filter(Patient.id == patient_id).first()
-    if patient:
-        patient.name = name
-        patient.date_of_birth = date_of_birth
-        patient.allergies = allergies
-        session.commit()
-
-def delete_patient(session: Session, patient_id: int):
-    patient = session.query(Patient).filter(Patient.id == patient_id).first()
-    if patient:
-        session.delete(patient)
-        session.commit()
-
-def search_patient(session: Session, name: str):
-    return session.query(Patient).filter(Patient.name.contains(name)).all()
-
-# function to add bills and payments
-def add_bill(session: Session, patient_id: int, total_cost: float, date: Date):
-    bill = Bill(patient_id=patient_id, total_cost=total_cost, date=date)
-    session.add(bill)
-    session.commit()
-
-def get_sales_report(session: Session):
-    bills = session.query(Bill).all()
-    sales_report = []
-    for bill in bills:
-        sales_report.append({
-            'bill_id': bill.id,
-            'patient_id': bill.patient_id,
-            'total_cost': bill.total_cost,
-            'date': bill.date
-        })
-    return sales_report
-
-def get_costs_report(session: Session):
-    medications = session.query(Medication).all()
-    costs_report = []
-    for medication in medications:
-        costs_report.append({
-            'medication_id': medication.id,
-            'name': medication.name,
-            'cost': medication.cost,  # Assuming cost attribute exists in Medication model
-            'stock_level': medication.stock_level
-        })
-    return costs_report
-
-def get_profit_report(session: Session):
-    sales_report = get_sales_report(session)
-    costs_report = get_costs_report(session)
-    profit_report = []
-
-    for sale in sales_report:
-        for cost in costs_report:
-            if sale['medication_id'] == cost['medication_id']:
-                profit_report.append({
-                    'medication_id': sale['medication_id'],
-                    'profit': sale['total_cost'] - cost['cost']
-                })
-    return profit_report
-
-# functions to manage bills and payments:
-def edit_bill(session: Session, bill_id: int, patient_id: int, total_cost: float, date: Date):
-    bill = session.query(Bill).filter(Bill.id == bill_id).first()
-    if bill:
-        bill.patient_id = patient_id
-        bill.total_cost = total_cost
-        bill.date = date
-        session.commit()
-
-def delete_bill(session: Session, bill_id: int):
-    bill = session.query(Bill).filter(Bill.id == bill_id).first()
-    if bill:
-        session.delete(bill)
-        session.commit()
-
-def search_bill(session: Session, bill_id: int):
-    return session.query(Bill).filter(Bill.id == bill_id).first()
-
-def add_payment(session: Session, bill_id: int, amount: float, date: Date):
-    payment = Payment(bill_id=bill_id, amount=amount, date=date)
-    session.add(payment)
-    session.commit()
-
-def edit_payment(session: Session, payment_id: int, bill_id: int, amount: float, date: Date):
-    payment = session.query(Payment).filter(Payment.id == payment_id).first()
-    if payment:
-        payment.bill_id = bill_id
-        payment.amount = amount
-        payment.date = date
-        session.commit()
-
-def delete_payment(session: Session, payment_id: int):
-    payment = session.query(Payment).filter(Payment.id == payment_id).first()
-    if payment:
-        session.delete(payment)
-        session.commit()
-
-def search_payment(session: Session, payment_id: int):
-    return session.query(Payment).filter(Payment.id == payment_id).first()
-
-# def get_doctor(session: Session, doctor_id: int):
-
-# def get_nurse(session: Session, nurse_id: int):
-
-# graphical user exeprience (GUI)
-def main_menu():
-    window = tk.Tk()
-    window.title("Pharmacy Management System")
-
-    add_medication_button = tk.Button(window, text="Add Medication", command=add_medication_window)
-    add_medication_button.pack()
-
-    edit_medication_button = tk.Button(window, text="Edit Medication", command=edit_medication_window)
-    edit_medication_button.pack()
-
-    delete_medication_button = tk.Button(window, text="Delete Medication", command=delete_medication_window)
-    delete_medication_button.pack()
-
-    search_medication_button = tk.Button(window, text="Search Medication", command=search_medication_window)
-    search_medication_button.pack()
-
-    generate_report_button = tk.Button(window, text="Generate Report", command=generate_report_window)
-    generate_report_button.pack()
-
-    generate_alerts_button = tk.Button(window, text="Generate Alerts", command=generate_alerts_window)
-    generate_alerts_button.pack()
-
-    add_bill_button = tk.Button(window, text="Add Bill", command=add_bill_window)
-    add_bill_button.pack()
-
-    edit_bill_button = tk.Button(window, text="Edit Bill", command=edit_bill_window)
-    edit_bill_button.pack()
-
-    delete_bill_button = tk.Button(window, text="Delete Bill", command=delete_bill_window)
-    delete_bill_button.pack()
-
-    search_bill_button = tk.Button(window, text="Search Bill", command=search_bill_window)
-    search_bill_button.pack()
-
-    add_payment_button = tk.Button(window, text="Add Payment", command=add_payment_window)
-    add_payment_button.pack()
-
-
-# Similar buttons for payments
-
+from tkcalendar import Calendar
+import sqlite3
+
+# ======================================================================================================================
+# Connect to the database (or create it if it doesn't exist)
+conn = sqlite3.connect('pharmacy_inventory.db')
+cursor = conn.cursor()
+
+
+# Function to create the table if it doesn't exist
+def create_table():
+    cursor.execute("""CREATE TABLE IF NOT EXISTS medicines (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        dosage TEXT,
+        form TEXT,
+        manufacturer TEXT,
+        stock INTEGER,
+        expiry_date TEXT,
+        reorder_point INTEGER,
+        price REAL
+    )""")
+    conn.commit()
+create_table()  # Call the function to create the table
+
+# create patients table
+def create_patients_table():
+    cursor.execute("""CREATE TABLE IF NOT EXISTS patients (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        address TEXT,
+        phone_number TEXT,
+        allergies TEXT
+    )""")
+    conn.commit()
+create_patients_table()  # Call the function to create the table
+
+
+# create prescriptions table
+def create_prescriptions_table():
+    cursor.execute("""CREATE TABLE IF NOT EXISTS prescriptions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        patient_id INTEGER,
+        medicine_id INTEGER,
+        dosage TEXT,
+        frequency TEXT,
+        start_date TEXT,
+        end_date TEXT,
+        FOREIGN KEY (patient_id) REFERENCES patients(id),
+        FOREIGN KEY (medicine_id) REFERENCES medicines(id)
+    )""")
+    conn.commit()
+create_prescriptions_table()  # Call the function to create the table
+
+#======================================================================================================================
+
+# Function to add a new medicine to the database
+def add_medicine_window(medicine_treeview):
+    medicine_window = tk.Toplevel(window)  # Create a new top-level window
+    medicine_window.title("Add Medicine")  # Set the window title
+
+    # Create labels and entry fields for medicine details
+    tk.Label(medicine_window, text="Name:").grid(row=0, column=0, sticky="w", padx=5, pady=5)
+    name_entry = tk.Entry(medicine_window)
+    name_entry.grid(row=0, column=1, padx=5, pady=5)
+
+    tk.Label(medicine_window, text="Dosage:").grid(row=1, column=0, sticky="w", padx=5, pady=5)
+    dosage_entry = tk.Entry(medicine_window)
+    dosage_entry.grid(row=1, column=1, padx=5, pady=5)
+
+    tk.Label(medicine_window, text="Form:").grid(row=2, column=0, sticky="w", padx=5, pady=5)
+    form_entry = tk.Entry(medicine_window)
+    form_entry.grid(row=2, column=1, padx=5, pady=5)
+
+    tk.Label(medicine_window, text="Manufacturer:").grid(row=3, column=0, sticky="w", padx=5, pady=5)
+    manufacturer_entry = tk.Entry(medicine_window)
+    manufacturer_entry.grid(row=3, column=1, padx=5, pady=5)
+
+    tk.Label(medicine_window, text="Stock:").grid(row=4, column=0, sticky="w", padx=5, pady=5)
+    stock_entry = tk.Entry(medicine_window)
+    stock_entry.grid(row=4, column=1, padx=5, pady=5)
+
+    tk.Label(medicine_window, text="Expiry Date (YYYY-MM-DD):").grid(row=5, column=0, sticky="w", padx=5, pady=5)
+    expiry_date_entry = tk.Entry(medicine_window)
+    expiry_date_entry.grid(row=5, column=1, padx=5, pady=5)
+
+    tk.Label(medicine_window, text="Reorder Point:").grid(row=6, column=0, sticky="w", padx=5, pady=5)
+    reorder_point_entry = tk.Entry(medicine_window)
+    reorder_point_entry.grid(row=6, column=1, padx=5, pady=5)
+
+    tk.Label(medicine_window, text="Price:").grid(row=7, column=0, sticky="w", padx=5, pady=5)
+    price_entry = tk.Entry(medicine_window)
+    price_entry.grid(row=7, column=1, padx=5, pady=5)
+
+    # Button to save the new medicine
+    save_button = tk.Button(medicine_window, text="Save Medicine", command=lambda: add_medicine(
+        name_entry.get(), dosage_entry.get(), form_entry.get(), manufacturer_entry.get(),
+        int(stock_entry.get()), expiry_date_entry.get(), int(reorder_point_entry.get()), float(price_entry.get())
+    ))
+    save_button.grid(row=8, column=0, columnspan=2, padx=5, pady=5)
+
+    # call the function to Update the display frame after adding the medicine
+    update_medicine_display(medicine_treeview)
+
+    # Focus on the first entry field
+    name_entry.focus_set()
+
+    # Run the main loop for the new window
+    medicine_window.mainloop()
+
+
+def add_medicine(name, dosage, form, manufacturer, stock, expiry_date, reorder_point, price):
+    try:
+        # Insert new medicine data into the database
+        cursor.execute("""INSERT INTO medicines (name, dosage, form, manufacturer, stock, expiry_date, reorder_point, 
+            price) VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                       (name, dosage, form, manufacturer, stock, expiry_date, reorder_point, price))
+        conn.commit()
+    except sqlite3.Error as e:
+        print(f"An error occurred: {e}")
+        tk.messagebox.showerror("Error", "An error occurred while saving the medicine to the database.")
+
+
+# function to Update the display frame after adding the medicine
+def update_medicine_display(medicine_treeview):
+    # Clear existing rows in the Treeview
+    # Fetch updated list of medicines from the database
+    cursor.execute("SELECT * FROM medicines")
+    medicines = cursor.fetchall()
+
+    # Insert each medicine into the Treeview
+    for medicine in medicines:
+        medicine_treeview.insert('', 'end', values=medicine)
+
+
+# Function to delete a selected medicine
+def delete_selected_medicine(medicine_treeview):
+    try:
+        # Get the selected medicine ID
+        selected_item = medicine_treeview.selection()[0]  # Get selected item
+        selected_medicine_id = medicine_treeview.item(selected_item, 'values')[0]  # Get the ID from the item's values
+
+        if selected_medicine_id is not None:  # Check if a medicine is selected
+            # Confirmation prompt before deletion
+            confirmation = tk.messagebox.askquestion("Confirm Delete", "Are you sure you want to delete this medicine?")
+
+            if confirmation == 'yes':
+                try:
+                    # Delete medicine data from the database based on ID
+                    cursor.execute("""DELETE FROM medicines WHERE id = ?""", (selected_medicine_id,))
+                    conn.commit()
+
+                    # Update the display frame after deleting the medicine
+                    update_medicine_display(medicine_treeview)
+                except sqlite3.Error as err:
+                    tk.messagebox.showerror("Error", f"Error deleting medicine: {err}")
+        else:
+            tk.messagebox.showinfo("Error", "Please select a medicine to delete.")
+    except IndexError:
+        tk.messagebox.showinfo("Error", "Please select a medicine to delete.")
+
+
+def edit_selected_medicine(medicine_treeview):
+    # function to edit selected medicine
+    # Get the selected medicine ID
+    try:
+        selected_item = medicine_treeview.selection()[0]  # Get selected item
+        selected_medicine_id = medicine_treeview.item(selected_item, 'values')[0]  # Get the ID from the item's values
+
+        if selected_medicine_id:  # Check if a medicine is selected
+            # Fetch current details of the medicine from the database
+            cursor.execute("SELECT * FROM medicines WHERE id = ?", (selected_medicine_id,))
+            medicine = cursor.fetchone()
+
+            # Open a new window with entry fields pre-filled with the current details of the medicine
+            edit_medicine_window = tk.Toplevel(window)  # Create a new top-level window
+            edit_medicine_window.title("Edit Medicine")  # Set the window title
+
+            # Create labels and entry fields for medicine details, pre-filled with current details
+            tk.Label(edit_medicine_window, text="Name:").grid(row=0, column=0, sticky="w", padx=5, pady=5)
+            name_entry = tk.Entry(edit_medicine_window)
+            name_entry.insert(0, medicine[1])  # Fill the entry field with the current name
+            name_entry.grid(row=0, column=1, padx=5, pady=5)
+
+            tk.Label(edit_medicine_window, text="Dosage:").grid(row=1, column=0, sticky="w", padx=5, pady=5)
+            dosage_entry = tk.Entry(edit_medicine_window)
+            dosage_entry.insert(0, medicine[2])  # Fill the entry field with the current dosage
+            dosage_entry.grid(row=1, column=1, padx=5, pady=5)
+
+            tk.Label(edit_medicine_window, text="Form:").grid(row=2, column=0, sticky="w", padx=5, pady=5)
+            form_entry = tk.Entry(edit_medicine_window)
+            form_entry.insert(0, medicine[3])  # Fill the entry field with the current form
+            form_entry.grid(row=2, column=1, padx=5, pady=5)
+
+            tk.Label(edit_medicine_window, text="Manufacturer:").grid(row=3, column=0, sticky="w", padx=5, pady=5)
+            manufacturer_entry = tk.Entry(edit_medicine_window)
+            manufacturer_entry.insert(0, medicine[4])  # Fill the entry field with the current manufacturer
+            manufacturer_entry.grid(row=3, column=1, padx=5, pady=5)
+
+            tk.Label(edit_medicine_window, text="Stock:").grid(row=4, column=0, sticky="w", padx=5, pady=5)
+            stock_entry = tk.Entry(edit_medicine_window)
+            stock_entry.insert(0, medicine[5])  # Fill the entry field with the current stock
+            stock_entry.grid(row=4, column=1, padx=5, pady=5)
+
+            tk.Label(edit_medicine_window, text="Expiry Date (YYYY-MM-DD):").grid(row=5, column=0, sticky="w", padx=5,
+                                                                                  pady=5)
+            expiry_date_entry = tk.Entry(edit_medicine_window)
+            expiry_date_entry.insert(0, medicine[6])  # Fill the entry field with the current expiry date
+            expiry_date_entry.grid(row=5, column=1, padx=5, pady=5)
+
+            tk.Label(edit_medicine_window, text="Reorder Point:").grid(row=6, column=0, sticky="w", padx=5, pady=5)
+            reorder_point_entry = tk.Entry(edit_medicine_window)
+            reorder_point_entry.insert(0, medicine[7])  # Fill the entry field with the current reorder point
+            reorder_point_entry.grid(row=6, column=1, padx=5, pady=5)
+
+            tk.Label(edit_medicine_window, text="Price:").grid(row=7, column=0, sticky="w", padx=5, pady=5)
+            price_entry = tk.Entry(edit_medicine_window)
+            price_entry.insert(0, medicine[8])  # Fill the entry field with the current price
+            price_entry.grid(row=7, column=1, padx=5, pady=5)
+
+            # Button to save the changes
+            save_button = tk.Button(edit_medicine_window, text="Save Changes", command=lambda: update_medicine(
+                selected_medicine_id,
+                name_entry.get(), dosage_entry.get(), form_entry.get(), manufacturer_entry.get(),
+                int(stock_entry.get()), expiry_date_entry.get(), int(reorder_point_entry.get()),
+                float(price_entry.get()),
+                medicine_treeview))
+            save_button.grid(row=8, column=0, columnspan=2, padx=5, pady=5)
+
+            # Run the main loop for the new window
+            edit_medicine_window.mainloop()
+        else:
+            tk.messagebox.showinfo("Error", "Please select a medicine to edit.")
+    except IndexError:
+        tk.messagebox.showinfo("Error", "Please select a medicine to edit.")
+
+
+def update_medicine(id, name, dosage, form, manufacturer, stock, expiry_date, reorder_point, price,
+                    medicine_treeview):
+    try:
+        # Update medicine data in the database
+        cursor.execute(
+            """UPDATE medicines SET name = ?, dosage = ?, form = ?, manufacturer = ?, stock = ?, expiry_date = ?, 
+            reorder_point = ?, price = ? WHERE id = ?""",
+            (name, dosage, form, manufacturer, stock, expiry_date, reorder_point, price, id))
+        conn.commit()
+
+        # Update the display frame after editing the medicine
+        update_medicine_display(medicine_treeview)
+    except sqlite3.Error as e:
+        print(f"An error occurred: {e}")
+        tk.messagebox.showerror("Error", "An error occurred while updating the medicine in the database.")
+
+
+def populate_treeview(medicine_treeview):
+    # Clear existing rows in the Treeview
+
+    # Fetch all medicines from the database
+    cursor.execute("SELECT * FROM medicines")
+    medicines = cursor.fetchall()
+
+    # Insert each medicine into the Treeview
+    for medicine in medicines:
+        medicine_treeview.insert('', 'end', values=medicine)
+
+
+def inventory_window():
+    # Create left frame for medication details
+    left_frame = tk.LabelFrame(window, text="Medicine Details", bd=5, width=200, height=150)
+    left_frame.pack(side="top", fill="both", expand=False)
+
+    left_frame0 = tk.LabelFrame(left_frame, text="", bd=2, width=200, height=150)
+    left_frame0.grid(row=0, column=0, padx=15, pady=15)
+
+    # Create a frame for the control buttons inside the left frame
+    control_frame = tk.Frame(left_frame0)
+    control_frame.pack(side="bottom")
+
+    # Create the control buttons
+    add_button = tk.Button(control_frame, text="Add Medicine", command=lambda: add_medicine_window(medicine_treeview))
+    add_button.pack(side="left", padx=5, pady=5)
+
+    edit_button = tk.Button(control_frame, text="Edit", command=lambda: edit_selected_medicine(medicine_treeview))
+    edit_button.pack(side="left", padx=5, pady=5)
+
+    delete_button = tk.Button(control_frame, text="Delete", command=lambda: delete_selected_medicine(medicine_treeview))
+    delete_button.pack(side="left", padx=5, pady=5)
+
+    save_button = tk.Button(control_frame, text="Save")
+    save_button.pack(side="left", padx=5, pady=5)
+
+    exit_button = tk.Button(control_frame, text="Exit")
+    exit_button.pack(side="left", padx=5, pady=5)
+
+    # Create a frame for the fields
+    fields_frame = tk.Frame(left_frame0)
+    fields_frame.pack(pady=10)
+
+    # Create aframe to display added medicines
+    display_frame = tk.LabelFrame(window, text="Display medicine", bd=5, width=600, height=450, relief=tk.RIDGE)
+    display_frame.pack(side="top", fill="both", expand=True)
+
+    # Create the medicine list treeview
+    medicine_columns = ["ID", "Name", "Dosage", "Form", "Manufacturer", "Stock", "Expiry Date", "Reorder Point",
+                        "Price"]
+    medicine_treeview = ttk.Treeview(display_frame, columns=medicine_columns, show="headings", style="mystyle.Treeview")
+    for col in medicine_columns:
+        medicine_treeview.heading(col, text=col)
+        medicine_treeview.column(col, width=100, anchor="center")
+    medicine_treeview.pack(side="left", fill="both", expand=True)
+
+    # Configure style to add lines between columns
+    style = ttk.Style()
+    style.configure("mystyle.Treeview", highlightthickness=0, bd=0, font=('Helvetica', 10), rowheight=25)
+    style.configure("mystyle.Treeview.Heading", font=('Helvetica', 10, 'bold'))
+    style.layout("mystyle.Treeview", [('mystyle.Treeview.treearea', {'sticky': 'nswe'})])
+
+    # Create the scrollbar for the treeview
+    scrollbar = ttk.Scrollbar(display_frame, orient="vertical", command=medicine_treeview.yview)
+    scrollbar.pack(side="right", fill="y")
+    medicine_treeview.configure(yscrollcommand=scrollbar.set)
+
+
+def exit_window():
+    # Close the database connection and destroy the window
+    conn.close()
+    window.destroy()
+
+
+# ======================================================================================================================
+
+
+def update_patients_display(patients_treeview):
+    try:
+        # Clear existing rows in the Treeview
+        for row in patients_treeview.get_children():
+            patients_treeview.delete(row)
+        # Fetch all patients from the database
+        cursor.execute("SELECT * FROM patients")
+        patients = cursor.fetchall()
+        # Insert each patient into the Treeview
+        for patient in patients:
+            patients_treeview.insert('', 'end', values=patient)
+    except sqlite3.Error as e:
+        print(f"An error occurred: {e}")
+        tk.messagebox.showerror("Error", "An error occurred while fetching patients from the database.")
+
+def add_patient_from_input(patients_name_entry, patients_address_entry, patients_phone_number_entry, patients_allergies_entry, patients_treeview):
+    # Get the information from the entry fields
+    name = patients_name_entry.get()
+    address = patients_address_entry.get()
+    phone_number = patients_phone_number_entry.get()
+    allergies = patients_allergies_entry.get()
+
+    try:
+        # Insert new patient data into the database
+        cursor.execute("""INSERT INTO patients (name, address, phone_number, allergies)
+                        VALUES (?, ?, ?, ?)""", (name, address, phone_number, allergies))
+        conn.commit()
+        # Update the display frame after adding the patient
+        update_patients_display(patients_treeview)
+    except sqlite3.Error as e:
+        print(f"An error occurred: {e}")
+        tk.messagebox.showerror("Error", "An error occurred while adding the patient to the database.")
+
+
+def update_patient(selected_patient_id, param, param1, param2, param3, patients_treeview):
+    # Update patient data in the database
+    try:
+        cursor.execute("""UPDATE patients SET name = ?, address = ?, phone_number = ?, allergies = ? WHERE id = ?""",
+                       (param, param1, param2, param3, selected_patient_id))
+        conn.commit()
+        # Update the display frame after editing the patient
+        update_patients_display(patients_treeview)
+    except sqlite3.Error as e:
+        print(f"An error occurred: {e}")
+        tk.messagebox.showerror("Error", "An error occurred while updating the patient in the database.")
+
+
+def edit_patient(patients_treeview):
+    try:
+        # Get the selected patient ID
+        selected_item = patients_treeview.selection()[0]  # Get selected item
+        selected_patient_id = patients_treeview.item(selected_item, 'values')[0]  # Get the ID from the item's values
+
+        if selected_patient_id:  # Check if a patient is selected
+            # Fetch current details of the patient from the database
+            cursor.execute("SELECT * FROM patients WHERE id = ?", (selected_patient_id,))
+            patient = cursor.fetchone()
+
+            # Open a new window with entry fields pre-filled with the current details of the patient
+            edit_patient_window = tk.Toplevel(window)  # Create a new top-level window
+            edit_patient_window.title("Edit Patient")  # Set the window title
+
+            # Create labels and entry fields for patient details, pre-filled with current details
+            tk.Label(edit_patient_window, text="Name:").grid(row=0, column=0, sticky="w", padx=5, pady=5)
+            name_entry = tk.Entry(edit_patient_window)
+            name_entry.insert(0, patient[1])  # Fill the entry field with the current name
+            name_entry.grid(row=0, column=1, padx=5, pady=5)
+
+            tk.Label(edit_patient_window, text="Address:").grid(row=1, column=0, sticky="w", padx=5, pady=5)
+            address_entry = tk.Entry(edit_patient_window)
+            address_entry.insert(0, patient[2])  # Fill the entry field with the current address
+            address_entry.grid(row=1, column=1, padx=5, pady=5)
+
+            tk.Label(edit_patient_window, text="Phone Number:").grid(row=2, column=0, sticky="w", padx=5, pady=5)
+            phone_number_entry = tk.Entry(edit_patient_window)
+            phone_number_entry.insert(0, patient[3])  # Fill the entry field with the current phone number
+            phone_number_entry.grid(row=2, column=1, padx=5, pady=5)
+
+            tk.Label(edit_patient_window, text="Allergies:").grid(row=3, column=0, sticky="w", padx=5, pady=5)
+            allergies_entry = tk.Entry(edit_patient_window)
+            allergies_entry.insert(0, patient[4])  # Fill the entry field with the current allergies
+            allergies_entry.grid(row=3, column=1, padx=5, pady=5)
+
+            # Button to save the changes
+            save_button = tk.Button(edit_patient_window, text="Save Changes", command=lambda: update_patient(
+                selected_patient_id,
+                name_entry.get(), address_entry.get(), phone_number_entry.get(), allergies_entry.get(),
+                patients_treeview))
+            save_button.grid(row=4, column=0, columnspan=2, padx=5, pady=5)
+
+            # Run the main loop for the new window
+            edit_patient_window.mainloop()
+        else:
+            tk.messagebox.showinfo("Error", "Please select a patient to edit.")
+    except IndexError:
+        tk.messagebox.showinfo("Error", "Please select a patient to edit.")
+
+def delete_patient(patients_treeview):
+    try:
+        # Get the selected patient ID
+        selected_item = patients_treeview.selection()[0]  # Get selected item
+        selected_patient_id = patients_treeview.item(selected_item, 'values')[0]  # Get the ID from the item's values
+
+        if selected_patient_id:  # Check if a patient is selected
+            # Confirmation prompt before deletion
+            confirmation = tk.messagebox.askquestion("Confirm Delete", "Are you sure you want to delete this patient?")
+
+            if confirmation == 'yes':
+                try:
+                    # Delete patient data from the database based on ID
+                    cursor.execute("""DELETE FROM patients WHERE id = ?""", (selected_patient_id,))
+                    conn.commit()
+
+                    # Update the display frame after deleting the patient
+                    update_patients_display(patients_treeview)
+                except sqlite3.Error as err:
+                    tk.messagebox.showerror("Error", f"Error deleting patient: {err}")
+        else:
+            tk.messagebox.showinfo("Error", "Please select a patient to delete.")
+    except IndexError:
+        tk.messagebox.showinfo("Error", "Please select a patient to delete.")
+def search_patient(search_term, patients_treeview):
+    # Perform search logic and update the treeview with the search results
+    # This function should fetch the matching patients from the database and update the treeview
+    pass
+
+
+def clear_input_fields(patients_name_entry, patients_address_entry, patients_phone_number_entry, patients_allergies_entry):
+    # Logic to clear the patient details fields
+    patients_name_entry.delete(0, tk.END)
+    patients_address_entry.delete(0, tk.END)
+    patients_phone_number_entry.delete(0, tk.END)
+    patients_allergies_entry.delete(0, tk.END)
+
+def patients_window():
+    patients_window1 = tk.Toplevel(window)
+    patients_window1.title("Patients")
+    patients_window1.geometry("800x600")
+
+    # Create the top frame for the search bar and buttons
+    top_frame1 = tk.LabelFrame(patients_window1, bd=5)
+    top_frame1.pack(side="top", fill="x")
+
+    # Create the search bar
+    search_label = tk.Label(top_frame1, text="Search:")
+    search_label.grid(row=0, column=0, padx=5, pady=5)
+    search_entry = tk.Entry(top_frame1)
+    search_entry.grid(row=0, column=1, padx=5, pady=5)
+
+    # Create the search button
+    search_button = tk.Button(top_frame1,
+                              text="Search", command=lambda: search_patient(search_entry.get(), patient_treeview))
+    search_button.grid(row=0, column=2, padx=5, pady=5)
+
+    # create frame to add patients details
+    frame1 = tk.LabelFrame(patients_window1, text="Patients Details", bd=5)
+    frame1.pack(side="top", fill="both", expand=False)
+
+    patientsframe = tk.Frame(frame1)
+    patientsframe.pack(side="left")
+
+    # Create labels and entry fields for each field
+    patients_name = tk.Label(patientsframe, text="Name:")
+    patients_name.grid(row=0, column=0, padx=5, pady=5)
+    patients_name_entry = tk.Entry(patientsframe)
+    patients_name_entry.grid(row=0, column=1, padx=5, pady=5)
+
+    patients_address = tk.Label(patientsframe, text="Address:")
+    patients_address.grid(row=1, column=0, padx=5, pady=5)
+    patients_address_entry = tk.Entry(patientsframe)
+    patients_address_entry.grid(row=1, column=1, padx=5, pady=5)
+
+    patients_phone_number = tk.Label(patientsframe, text="Phone Number:")
+    patients_phone_number.grid(row=2, column=0, padx=5, pady=5)
+    patients_phone_number_entry = tk.Entry(patientsframe)
+    patients_phone_number_entry.grid(row=2, column=1, padx=5, pady=5)
+
+    # Create labels and entry fields for patients allergies
+    patients_allergies = tk.Label(patientsframe, text="Allergies:")
+    patients_allergies.grid(row=3, column=0, padx=5, pady=5)
+    patients_allergies_entry = tk.Entry(patientsframe)
+    patients_allergies_entry.grid(row=3, column=1, padx=5, pady=5)
+
+    # create a control frame for the buttons
+    control_frame1 = tk.Frame(frame1)
+    control_frame1.pack(side="bottom")
+
+    # Create the add patient button
+    add_patient_button = tk.Button(control_frame1, text="Add Patient", command=lambda: add_patient_from_input(
+                                                patients_name_entry, patients_address_entry, patients_phone_number_entry,
+                                                patients_allergies_entry, patient_treeview))
+    add_patient_button.grid(row=0, column=3, padx=5, pady=5)
+
+    # Create the edit patient button
+    edit_patient_button = tk.Button(control_frame1, text="Edit Patient", command=lambda: edit_patient(patient_treeview))
+    edit_patient_button.grid(row=0, column=4, padx=5, pady=5)
+
+    # Create the delete patient button
+    delete_patient_button = tk.Button(control_frame1, text="Delete Patient", command=lambda: delete_patient(patient_treeview))
+    delete_patient_button.grid(row=0, column=5, padx=5, pady=5)
+
+    # Create the save patient button
+    save_patient_button = tk.Button(control_frame1, text="clear", command=lambda: clear_input_fields(patients_name_entry,
+                                patients_address_entry, patients_phone_number_entry, patients_allergies_entry))
+    save_patient_button.grid(row=0, column=6, padx=5, pady=5)
+
+    # Create the exit patient button
+    exit_patient_button = tk.Button(control_frame1, text="Exit")
+    exit_patient_button.grid(row=0, column=7, padx=5, pady=5, sticky="s")
+
+    # Create the patient list frame
+    patient_list_frame = tk.LabelFrame(patients_window1, text="Patients List", bd=5)
+    patient_list_frame.pack(side="top", fill="both", expand=True)
+
+    # Create the patient list treeview
+    patients_columns = ["ID", "Name", "Address", "Phone Number", "Allergies"]
+    patient_treeview = ttk.Treeview(patient_list_frame, columns=patients_columns,
+                                    show="headings", style="mystyle.Treeview")
+    for col in patients_columns:
+        patient_treeview.heading(col, text=col)
+        patient_treeview.column(col, width=100, anchor="center")
+    patient_treeview.pack(side="left", fill="both", expand=True)
+
+    # Configure style to add lines between columns
+    style = ttk.Style()
+    style.configure("mystyle.Treeview", highlightthickness=0, bd=0, font=('Helvetica', 10), rowheight=25)
+    style.configure("mystyle.Treeview.Heading", font=('Helvetica', 10, 'bold'))
+    style.layout("mystyle.Treeview", [('mystyle.Treeview.treearea', {'sticky': 'nswe'})])
+
+    # Create the scrollbar for the treeview
+    scrollbar = ttk.Scrollbar(patient_list_frame, orient="vertical", command=patient_treeview.yview)
+    scrollbar.pack(side="right", fill="y")
+    patient_treeview.configure(yscrollcommand=scrollbar.set)
+
+    # populate the treeview with patients
+    update_patients_display(patient_treeview)
+
+
+# ======================================================================================================================
+def add_prescription(patient_id, medicine_id, dosage, frequency, start_date, end_date, prescription_treeview):
+    try:
+        # Insert new prescription data into the database
+        cursor.execute("""INSERT INTO prescriptions (patient_id, medicine_id, dosage, frequency, start_date, end_date)
+                        VALUES (?, ?, ?, ?, ?, ?)""", (patient_id, medicine_id, dosage, frequency, start_date, end_date))
+        conn.commit()
+        # Update the display frame after adding the prescription
+        update_prescription_display(prescription_treeview)
+    except sqlite3.Error as e:
+        print(f"An error occurred: {e}")
+        tk.messagebox.showerror("Error", "An error occurred while saving the prescription to the database.")
+
+def update_prescription_display(prescription_treeview):
+    try:
+        # Clear existing rows in the Treeview
+        for row in prescription_treeview.get_children():
+            prescription_treeview.delete(row)
+        # Fetch all prescriptions from the database
+        cursor.execute("SELECT * FROM prescriptions")
+        prescriptions = cursor.fetchall()
+        # Insert each prescription into the Treeview
+        for prescription in prescriptions:
+            prescription_treeview.insert('', 'end', values=prescription)
+    except sqlite3.Error as e:
+        print(f"An error occurred: {e}")
+        tk.messagebox.showerror("Error", "An error occurred while fetching prescriptions from the database.")
+
+def delete_selected_prescription(prescription_treeview):
+    try:
+        # Get the selected prescription ID
+        selected_item = prescription_treeview.selection()[0]  # Get selected item
+        selected_prescription_id = prescription_treeview.item(selected_item, 'values')[0]  # Get the ID from the item's values
+
+        if selected_prescription_id:  # Check if a prescription is selected
+            # Confirmation prompt before deletion
+            confirmation = tk.messagebox.askquestion("Confirm Delete", "Are you sure you want to delete this prescription?")
+
+            if confirmation == 'yes':
+                try:
+                    # Delete the prescription from the database
+                    cursor.execute("DELETE FROM prescriptions WHERE id = ?", (selected_prescription_id,))
+                    conn.commit()
+                    # Update the display frame after deleting the prescription
+                    update_prescription_display(prescription_treeview)
+                except sqlite3.Error as e:
+                    print(f"An error occurred: {e}")
+                    tk.messagebox.showerror("Error", "An error occurred while deleting the prescription from the database.")
+        else:
+            tk.messagebox.showinfo("Error", "Please select a prescription to delete.")
+    except IndexError:
+        tk.messagebox.showinfo("Error", "Please select a prescription to delete.")
+
+def clear_prescription_input_fields(patient_id_entry, medicine_id_entry, dosage_entry,
+                                    frequency_entry, start_date_entry, end_date_entry):
+    # function clears the input fields
+    patient_id_entry.delete(0, tk.END)
+    medicine_id_entry.delete(0, tk.END)
+    dosage_entry.delete(0, tk.END)
+    frequency_entry.delete(0, tk.END)
+    start_date_entry.delete(0, tk.END)
+    end_date_entry.delete(0, tk.END)
+def prescription_window():
+    prescription_window1 = tk.Toplevel(window)
+    prescription_window1.title("Prescriptions")
+    prescription_window1.geometry("800x600")
+
+    # Create the top frame for the search bar and buttons
+    ptop_frame = tk.LabelFrame(prescription_window1, text="Search", bd=5)
+    ptop_frame.pack(side="top", fill="x")
+
+    # Create the search bar
+    search_label = tk.Label(ptop_frame, text="Search:")
+    search_label.grid(row=0, column=0, padx=5, pady=5)
+    search_entry = tk.Entry(ptop_frame)
+    search_entry.grid(row=0, column=1, padx=5, pady=5)
+
+    # Create the search button
+    search_button = tk.Button(ptop_frame, text="Search")
+    search_button.grid(row=0, column=2, padx=5, pady=5)
+
+    # Create the middle frame for prescription details
+    middle_frame = tk.LabelFrame(prescription_window1, text="Prescription Details", bd=5)
+    middle_frame.pack(side="top", fill="x")
+
+    # Create labels and entry fields for each field
+    patient_id_label = tk.Label(middle_frame, text="Patient ID:")
+    patient_id_label.grid(row=0, column=0, padx=5, pady=5)
+    patient_id_entry = tk.Entry(middle_frame)
+    patient_id_entry.grid(row=0, column=1, padx=5, pady=5)
+
+    medicine_id_label = tk.Label(middle_frame, text="Medicine ID:")
+    medicine_id_label.grid(row=1, column=0, padx=5, pady=5)
+    medicine_id_entry = tk.Entry(middle_frame)
+    medicine_id_entry.grid(row=1, column=1, padx=5, pady=5)
+
+    dosage_lbl = tk.Label(middle_frame, text="Dosage:")
+    dosage_lbl.grid(row=2, column=0, padx=5, pady=5)
+    ddosage_entry = tk.Entry(middle_frame)
+    ddosage_entry.grid(row=2, column=1, padx=5, pady=5)
+
+    frequency_label = tk.Label(middle_frame, text="Frequency:")
+    frequency_label.grid(row=3, column=0, padx=5, pady=5)
+    frequency_entry = tk.Entry(middle_frame)
+    frequency_entry.grid(row=3, column=1, padx=5, pady=5)
+
+    start_date_label = tk.Label(middle_frame, text="Start Date:")
+    start_date_label.grid(row=4, column=0, padx=5, pady=5)
+    start_date_entry = tk.Entry(middle_frame)
+    start_date_entry.grid(row=4, column=1, padx=5, pady=5)
+
+    end_date_label = tk.Label(middle_frame, text="End Date:")
+    end_date_label.grid(row=5, column=0, padx=5, pady=5)
+    end_date_entry = tk.Entry(middle_frame)
+    end_date_entry.grid(row=5, column=1, padx=5, pady=5)
+
+    # Create the add prescription button
+    add_prescription_button = tk.Button(middle_frame, text="Add Prescription", command=lambda: add_prescription(
+        patient_id_entry.get(), medicine_id_entry.get(), ddosage_entry.get(), frequency_entry.get(),
+        start_date_entry.get(), end_date_entry.get(), prescription_treeview))
+    add_prescription_button.grid(row=6, column=0, padx=5, pady=5)
+
+    # Create the delete prescription button
+    delete_prescription_button = tk.Button(middle_frame, text="Delete Prescription", command=lambda: delete_selected_prescription(prescription_treeview))
+    delete_prescription_button.grid(row=6, column=1, padx=5, pady=5)
+
+    # Create the edit prescription button
+    edit_prescription_button = tk.Button(middle_frame, text="Edit Prescription")
+    edit_prescription_button.grid(row=6, column=2, padx=5, pady=5)
+
+    # Create the save prescription button
+    clear_prescription_input_button = tk.Button(middle_frame, text="clear",
+                                                command=lambda: clear_prescription_input_fields(
+                                                patient_id_entry, medicine_id_entry, ddosage_entry,
+                                                frequency_entry, start_date_entry, end_date_entry))
+    clear_prescription_input_button.grid(row=6, column=3, padx=5, pady=5)
+
+    # Create the prescription list frame
+    prescription_list_frame = tk.LabelFrame(prescription_window1, text="Prescription List", bd=5)
+    prescription_list_frame.pack(side="top", fill="both", expand=True)
+
+    # Create the prescription list treeview
+    columns = ["ID", "Patient ID", "Medicine_id", "Dosage", "Frequency", "start date", "End date"]
+    prescription_treeview = ttk.Treeview(prescription_list_frame, columns=columns,
+                                         show="headings", style="mystyle.Treeview")
+    for col in columns:
+        prescription_treeview.heading(col, text=col)
+        prescription_treeview.column(col, width=100, anchor="center")
+    prescription_treeview.pack(side="left", fill="both", expand=True)
+
+    # Configure style to add lines between columns
+    style = ttk.Style()
+    style.configure("mystyle.Treeview", highlightthickness=0, bd=0, font=('Helvetica', 10), rowheight=25)
+    style.configure("mystyle.Treeview.Heading", font=('Helvetica', 10, 'bold'))
+    style.layout("mystyle.Treeview", [('mystyle.Treeview.treearea', {'sticky': 'nswe'})])
+
+    # Create the scrollbar for the treeview
+    scrollbar = ttk.Scrollbar(prescription_list_frame, orient="vertical", command=prescription_treeview.yview)
+    scrollbar.pack(side="right", fill="y")
+    prescription_treeview.configure(yscrollcommand=scrollbar.set)
+
+
+# ======================================================================================================================
+def calculate_bill(prescription_id):
+    try:
+        # Fetch the prescription details from the database
+        cursor.execute("SELECT * FROM prescriptions WHERE id = ?", (prescription_id,))
+        prescription = cursor.fetchone()
+
+        if prescription is not None:
+            # Fetch the medicine details from the database
+            cursor.execute("SELECT * FROM medicines WHERE id = ?", (prescription[2],))
+            medicine = cursor.fetchone()
+
+            if medicine is not None:
+                # Calculate the total cost
+                total_cost = medicine[8] * int(prescription[3])
+                return total_cost
+            else:
+                print("Medicine not found.")
+                return None
+        else:
+            print("Prescription not found.")
+            return None
+    except sqlite3.Error as e:
+        print(f"An error occurred: {e}")
+        return None
+def billing_window():
+    billing_window1 = tk.Toplevel(window)
+    billing_window1.title("Billing")
+    billing_window1.geometry("800x600")
+
+    # Create the top frame for the search bar and buttons
+    btop_frame = tk.LabelFrame(billing_window1, text="Search", bd=5)
+    btop_frame.pack(side="top", fill="x")
+
+    # Create the search bar
+    search_label = tk.Label(btop_frame, text="Search:")
+    search_label.grid(row=0, column=0, padx=5, pady=5)
+    search_entry = tk.Entry(btop_frame)
+    search_entry.grid(row=0, column=1, padx=5, pady=5)
+
+    # Create the search button
+    search_button = tk.Button(btop_frame, text="Search")
+    search_button.grid(row=0, column=2, padx=5, pady=5)
+
+    # Create the middle frame for billing details
+    bmiddle_frame = tk.LabelFrame(billing_window1, text="Billing Details", bd=5)
+    bmiddle_frame.pack(side="top", fill="x")
+
+    # Create labels and entry fields for each field
+    patient_id_label = tk.Label(bmiddle_frame, text="Patient ID:")
+    patient_id_label.grid(row=0, column=0, padx=5, pady=5)
+    patient_id_entry = tk.Entry(bmiddle_frame)
+    patient_id_entry.grid(row=0, column=1, padx=5, pady=5)
+
+    prescription_id_label = tk.Label(bmiddle_frame, text="Prescription Info:")
+    prescription_id_label.grid(row=1, column=0, padx=5, pady=5)
+    prescription_id_entry = tk.Entry(bmiddle_frame)
+    prescription_id_entry.grid(row=1, column=1, padx=5, pady=5)
+
+    total_cost_label = tk.Label(bmiddle_frame, text="Total Cost:")
+    total_cost_label.grid(row=2, column=0, padx=5, pady=5)
+    total_cost_entry = tk.Entry(bmiddle_frame)
+    total_cost_entry.grid(row=2, column=1, padx=5, pady=5)
+
+    # Create the calculate bill button
+    calculate_bill_button = tk.Button(bmiddle_frame, text="Calculate Bill", command=lambda: calculate_bill(
+        prescription_id_entry.get()))
+    calculate_bill_button.grid(row=3, column=0, padx=5, pady=5)
+
+    # Create the save bill button
+    save_bill_button = tk.Button(bmiddle_frame, text="Save Bill")
+    save_bill_button.grid(row=3, column=1, padx=5, pady=5)
+
+    # Create the exit bill button
+    exit_bill_button = tk.Button(bmiddle_frame, text="Exit")
+    exit_bill_button.grid(row=3, column=2, padx=5, pady=5)
+
+    # Create the billing list frame
+    billing_list_frame = tk.LabelFrame(billing_window1, text="Billing List", bd=5)
+    billing_list_frame.pack(side="right", fill="both", expand=True)
+
+
+
+# ======================================================================================================================
+# function for reports window
+def reports_window():
+    reportss_window = tk.Toplevel(window)
+    reportss_window.title("Reports")
+    reportss_window.geometry("800x600")
+
+    # Create the top frame for report type selection and filtering options
+    reports_top_frame = tk.LabelFrame(reportss_window, text="Select Report Type and Filter")
+    reports_top_frame.pack(side="top", fill="x")
+
+    # Report type selection
+    ttk.Label(reports_top_frame, text="Select Report Type:").grid(row=0, column=0, padx=5, pady=5)
+    report_type_combobox = ttk.Combobox(reports_top_frame, values=["patients Report", "Medicine Report", "Sales Report",
+                                                                   "Inventory Report"], state="readonly")
+    report_type_combobox.grid(row=0, column=1, padx=5, pady=5)
+
+    # Filtering options
+    ttk.Label(reports_top_frame, text="Start Date:").grid(row=1, column=0, padx=5, pady=5)
+    start_date_entry = ttk.Entry(reports_top_frame)
+    start_date_entry.grid(row=1, column=1, padx=5, pady=5)
+    start_date_cal_button = ttk.Button(reports_top_frame, text="date?", command=lambda: select_date(start_date_entry))
+    start_date_cal_button.grid(row=1, column=2, padx=5, pady=5)
+
+    ttk.Label(reports_top_frame, text="End Date:").grid(row=1, column=3, padx=5, pady=5)
+    end_date_entry = ttk.Entry(reports_top_frame)
+    end_date_entry.grid(row=1, column=4, padx=5, pady=5)
+    end_date_cal_button = ttk.Button(reports_top_frame, text="date?", command=lambda: select_date(end_date_entry))
+    end_date_cal_button.grid(row=1, column=5, padx=5, pady=5)
+
+    # Create the generate report button
+    generate_report_button = ttk.Button(reports_top_frame, text="Generate Report",
+                                        command=lambda: generate_report(report_type_combobox.get(),
+                                                                        start_date_entry.get(), end_date_entry.get()))
+    generate_report_button.grid(row=0, column=3, padx=5, pady=5, rowspan=2)
+
+    # Function to open calendar
+    def select_date(entry_widget):
+        def set_date():
+            selected_date = cal.get_date()
+            entry_widget.delete(0, tk.END)
+            entry_widget.insert(0, selected_date)
+            cal.destroy()
+
+        cal = Calendar(reportss_window, selectmode='day', date_pattern='yyyy-mm-dd')
+        cal.pack()
+        cal.place(relx=0.1, rely=0.3)
+        cal.bind("<Button-1>", lambda event: set_date())
+
+    # Placeholder function for generating report
+    def generate_report(report_type, start_date, end_date):
+        if report_type == "":
+            messagebox.showerror("Error", "Please select a report type")
+            return
+
+        # Display a message with the selected report type and filtering options
+        message = f"Generating {report_type} report"
+        if start_date:
+            message += f" from {start_date}"
+        if end_date:
+            message += f" to {end_date}"
+        messagebox.showinfo("Generating Report", message)
+
+    # Create the report display frame
+    display_frame = tk.LabelFrame(reportss_window, text="Report Display", bd=5)
+    display_frame.pack(side="top", fill="both", expand=True)
+
+    # Create the report display table depending on selected report type
+
+
+# ======================================================================================================================
+
+# Create the main window
+window = tk.Tk()
+window.title("Pharmacy Inventory Manager")
+window.geometry("800x600")
+
+# Create top frame for buttons
+top_frame = tk.LabelFrame(window, bd=3)
+top_frame.pack(side="top", fill="x")
+
+# Create the buttons in the top frame
+inventory_button = tk.Button(top_frame, text="Inventory", command=inventory_window)
+inventory_button.grid(row=0, column=0, padx=5, pady=5)
+
+patients_button = tk.Button(top_frame, text="Patients", command=patients_window)
+patients_button.grid(row=0, column=1, padx=5, pady=5)
+
+prescriptions_button = tk.Button(top_frame, text="Prescriptions", command=prescription_window)
+prescriptions_button.grid(row=0, column=2, padx=5, pady=5)
+
+billing_button = tk.Button(top_frame, text="Billing", command=billing_window)
+billing_button.grid(row=0, column=3, padx=5, pady=5)
+
+reports_button = tk.Button(top_frame, text="Reports", command=reports_window)
+reports_button.grid(row=0, column=4, padx=5, pady=5)
+# ======================================================================================================================
+
+
+if __name__ == "__main__":
+    # Run the application
     window.mainloop()
 
-def add_medication_window():
-    window = tk.Toplevel()
-    window.title("Add Medication")
-
-    # Create labels and entries for the fields using the grid layout
-    name_label = tk.Label(window, text="Name")
-    name_label.grid(row=0, column=0)
-    name_entry = tk.Entry(window)
-    name_entry.grid(row=0, column=1)
-
-
-    strength_label = tk.Label(window, text="Strength")
-    strength_label.grid(row=1, column=0)
-    strength_entry = tk.Entry(window)
-    strength_entry.grid(row=1, column=1)
-
-
-    stock_level_label = tk.Label(window, text="Stock Level")
-    stock_level_label.grid(row=2, column=0)
-    stock_level_entry = tk.Entry(window)
-    stock_level_entry.grid(row=2, column=1)
-
-
-    expiry_date_label = tk.Label(window, text="Expiry Date")
-    expiry_date_label.grid(row=3, column=0)
-    expiry_date_entry = tk.Entry(window)
-    expiry_date_entry.grid(row=3, column=1)
-
-
-    reorder_point_label = tk.Label(window, text="Reorder Point")
-    reorder_point_label.grid(row=4, column=0)
-    reorder_point_entry = tk.Entry(window)
-    reorder_point_entry.grid(row=4, column=1)
-
-    # Add similar labels and entries for the other fields
-
-    # add a submit button to add the medication to the database
-    submit_button = tk.Button(window, text="Submit",
-                              command=lambda: add_medication(name_entry.get(), strength_entry.get(),
-                                                             int(stock_level_entry.get()),
-                                                             datetime.strptime(expiry_date_entry.get(),
-                                                                               '%Y-%m-%d').date(),
-                                                             int(reorder_point_entry.get())))
-    submit_button.grid(row=5, column=0, columnspan=2)
-# GUI for editing a medication
-def edit_medication_window(name_entry, strength_entry, stock_level_entry, expiry_date_entry, reorder_point_entry):
-    window = tk.Toplevel()
-    window.title("Edit Medication")
-
-    # Create labels and entries for the fields
-    id_label = tk.Label(window, text="Medication ID")
-    id_label.grid(row=0, column=0)
-    id_entry = tk.Entry(window)
-    id_entry.grid(row=0, column=1)
-
-    # Rest of the fields are similar to add_medication_window
-
-    # Submit button to edit the medication in the database
-    submit_button = tk.Button(window, text="Submit", command=lambda: edit_medication(int(id_entry.get()), name_entry.get(), strength_entry.get(), int(stock_level_entry.get()), datetime.strptime(expiry_date_entry.get(), '%Y-%m-%d').date(), int(reorder_point_entry.get())))
-    submit_button.grid(row=6, column=0, columnspan=2)
-
-# GUI for deleting a medication
-def delete_medication_window():
-    window = tk.Toplevel()
-    window.title("Delete Medication")
-
-    # Create labels and entries for the fields
-    id_label = tk.Label(window, text="Medication ID")
-    id_label.grid(row=0, column=0)
-    id_entry = tk.Entry(window)
-    id_entry.grid(row=0, column=1)
-
-    # Submit button to delete the medication from the database
-    submit_button = tk.Button(window, text="Submit", command=lambda: delete_medication(int(id_entry.get())))
-    submit_button.grid(row=1, column=0, columnspan=2)
-
-# gui for searching for a medication
-def search_medication_window():
-    window = tk.Toplevel()
-    window.title("Search Medication")
-
-    # Create labels and entries for the fields
-    name_label = tk.Label(window, text="Name")
-    name_label.grid(row=0, column=0)
-    name_entry = tk.Entry(window)
-    name_entry.grid(row=0, column=1)
-
-    # Submit button to search for the medication in the database
-    submit_button = tk.Button(window, text="Submit", command=lambda: search_medication(name_entry.get()))
-    submit_button.grid(row=1, column=0, columnspan=2)
-# GUI for generating a report
-def generate_report_window():
-    window = tk.Toplevel()
-    window.title("Generate Report")
-
-    report = generate_inventory_report()
-
-    text = tk.Text(window)
-    text.insert(tk.END, report)
-    text.pack()
-
-# GUI for generating alerts
-def generate_alerts_window():
-    window = tk.Toplevel()
-    window.title("Generate Alerts")
-
-    alerts = generate_alerts()
-
-    text = tk.Text(window)
-    text.insert(tk.END, alerts)
-    text.pack()
-
-
-# GUI for adding patients and managing patient profiles
-    window = tk.Toplevel()
-    window.title("Add Patient")
-
-    # Create labels and entries for the fields
-    name_label = tk.Label(window, text="Name")
-    name_label.grid(row=0, column=0)
-    name_entry = tk.Entry(window)
-    name_entry.grid(row=0, column=1)
-
-    dob_label = tk.Label(window, text="Date of Birth")
-    dob_label.grid(row=2, column=0)
-    # create a date picker widget using the tkcalendar library
-    dob_entry = tk.Entry(window)
-    dob_entry.grid(row=2, column=1)
-
-    # create allergy labe and a a box for the allergies
-    allergies_label = tk.Label(window, text="Allergies")
-    allergies_label.grid(row=3, column=0)
-    allergies_entry = tk.Entry(window)
-    allergies_entry.grid(row=3, column=1)
-
-    # Submit button to add the patient to the database
-    submit_button = tk.Button(window, text="Submit", command=lambda: add_patient(name_entry.get(), datetime.strptime(dob_entry.get(), '%Y-%m-%d').date(), allergies_entry.get()))
-    submit_button.grid(row=4, column=0, columnspan=2)
-
-def edit_patient_window():
-    window = tk.Toplevel()
-    window.title("Edit Patient")
-
-    # Create labels and entries for the fields
-    id_label = tk.Label(window, text="patient ID")
-    id_label.grid(row=0, column=0)
-    id_entry = tk.Entry(window)
-    id_entry.grid(row=0, column=1)
-
-    name_label = tk.Label(window, text="Name")
-    name_label.grid(row=1, column=0)
-    name_entry = tk.Entry(window)
-    name_entry.grid(row=1, column=1)
-
-    dob_label = tk.Label(window, text="Date of Birth")
-    dob_label.grid(row=2, column=0)
-    # create a date picker widget using the tkcalendar library
-    dob_entry = tk.Entry(window)
-    dob_entry.grid(row=2, column=1)
-
-    # create allergy labe and a a box for the allergies
-    allergies_label = tk.Label(window, text="Allergies")
-    allergies_label.grid(row=3, column=0)
-    allergies_entry = tk.Entry(window)
-    allergies_entry.grid(row=3, column=1)
-
-
-    # ...
-
-    # Submit button to edit the patient in the database
-    submit_button = tk.Button(window, text="Submit", command=lambda: edit_patient(int(id_entry.get()), name_entry.get(), datetime.strptime(dob_entry.get(), '%Y-%m-%d').date(), allergies_entry.get()))
-    submit_button.grid(row=5, column=0, columnspan=2)
-
-def delete_patient_window():
-    window = tk.Toplevel()
-    window.title("Delete Patient")
-
-    # Create labels and entries for the fields
-    id_label = tk.Label(window, text="patient ID")
-    id_label.grid(row=0, column=0)
-    id_entry = tk.Entry(window)
-    id_entry.grid(row=0, column=1)
-
-    # Submit button to delete the patient from the database
-    submit_button = tk.Button(window, text="Submit", command=lambda: delete_patient(int(id_entry.get())))
-    submit_button.grid(row=2, column=0, columnspan=2)
-
-def search_patient_window():
-    window = tk.Toplevel()
-    window.title("Search Patient")
-
-    # Create labels and entries for the fields
-    name_label = tk.Label(window, text="Name")
-    name_label.grid(row=0, column=0)
-    name_entry = tk.Entry(window)
-    name_entry.grid(row=0, column=1)
-
-    # Submit button to search for the patient in the database
-    submit_button = tk.Button(window, text="Submit", command=lambda: search_patient(name_entry.get()))
-    submit_button.grid(row=2, column=0, columnspan=2)
-
-# GUI for bills and payments
-def add_bill_window():
-    window = tk.Toplevel()
-    window.title("Add Bill")
-
-    # Create labels and entries for the fields
-    patient_id_label = tk.Label(window, text="Patient ID")
-    patient_id_label.grid(row=0, column=0)
-    patient_id_entry = tk.Entry(window)
-    patient_id_entry.grid(row=0, column=1)
-
-    total_cost_label = tk.Label(window, text="Total Cost")
-    total_cost_label.grid(row=1, column=0)
-    total_cost_entry = tk.Entry(window)
-    total_cost_entry.grid(row=1, column=1)
-
-    date_label = tk.Label(window, text="Date")
-    date_label.grid(row=2, column=0)
-    date_entry = tk.Entry(window)
-    date_entry.grid(row=2, column=1)
-
-
-    # ...
-
-    # Submit button to add the bill to the database
-    submit_button = tk.Button(window, text="Submit", command=lambda: add_bill(int(patient_id_entry.get()), float(total_cost_entry.get()), datetime.strptime(date_entry.get(), '%Y-%m-%d').date()))
-    submit_button.grid(row=4, column=0, columnspan=2)
-
-def edit_bill_window():
-    window = tk.Toplevel()
-    window.title("Edit Bill")
-
-    # Create labels and entries for the fields
-    id_label = tk.Label(window, text="Bill ID")
-    id_label.grid(row=0, column=0)
-    id_entry = tk.Entry(window)
-    id_entry.grid(row=0, column=1)
-
-    patient_id_label = tk.Label(window, text="Patient ID")
-    patient_id_label.grid(row=1, column=0)
-    patient_id_entry = tk.Entry(window)
-    patient_id_entry.grid(row=1, column=1)
-
-    total_cost_label = tk.Label(window, text="Total Cost")
-    total_cost_label.grid(row=2, column=0)
-    total_cost_entry = tk.Entry(window)
-    total_cost_entry.grid(row=2, column=1)
-
-    date_label = tk.Label(window, text="Date")
-    date_label.grid(row=3, column=0)
-    date_entry = tk.Entry(window)
-    date_entry.grid(row=3, column=1)
-
-
-    # Submit button to edit the bill in the database
-    submit_button = tk.Button(window, text="Submit", command=lambda: edit_bill(int(id_entry.get()), int(patient_id_entry.get()), float(total_cost_entry.get()), datetime.strptime(date_entry.get(), '%Y-%m-%d').date()))
-    submit_button.grid(row=5, column=0, columnspan=2)
-
-def delete_bill_window():
-    window = tk.Toplevel()
-    window.title("Delete Bill")
-
-    # Create labels and entries for the fields
-    id_label = tk.Label(window, text="Bill ID")
-    id_label.grid(row=0, column=0)
-    id_entry = tk.Entry(window)
-    id_entry.grid(row=0, column=1)
-
-    # ...
-
-    # Submit button to delete the bill from the database
-    submit_button = tk.Button(window, text="Submit", command=lambda: delete_bill(int(id_entry.get())))
-    submit_button.grid(row=2, column=0, columnspan=2)
-
-def search_bill_window():
-    window = tk.Toplevel()
-    window.title("Search Bill")
-
-    # Create labels and entries for the fields
-    id_label = tk.Label(window, text="Bill ID")
-    id_label.grid(row=0, column=0)
-    id_entry = tk.Entry(window)
-    id_entry.grid(row=0, column=1)
-
-    # ...
-
-    # Submit button to search for the bill in the database
-    submit_button = tk.Button(window, text="Submit", command=lambda: search_bill(int(id_entry.get())))
-    submit_button.grid(row=2, column=0, columnspan=2)
-
-# Similar windows for payments
-def add_payment_window():
-    window = tk.Toplevel()
-    window.title("Add Payment")
-
-    # Create labels and entries for the fields
-    bill_id_label = tk.Label(window, text="Bill ID")
-    bill_id_label.grid(row=0, column=0)
-    bill_id_entry = tk.Entry(window)
-    bill_id_entry.grid(row=0, column=1)
-
-    amount_label = tk.Label(window, text="Amount")
-    amount_label.grid(row=1, column=0)
-    amount_entry = tk.Entry(window)
-    amount_entry.grid(row=1, column=1)
-
-    date_label = tk.Label(window, text="Date")
-    date_label.grid(row=2, column=0)
-    date_entry = tk.Entry(window)
-    date_entry.grid(row=2, column=1)
-
-    # Submit button to add the payment to the database
-    submit_button = tk.Button(window, text="Submit", command=lambda: add_payment(int(bill_id_entry.get()), float(amount_entry.get()), datetime.strptime(date_entry.get(), '%Y-%m-%d').date()))
-    submit_button.grid(row=4, column=0, columnspan=2)
-
-def generate_report_window():
-    window = tk.Toplevel()
-    window.title("Generate Report")
-
-    session = Session()
-    report = generate_inventory_report(session)
-
-    text = tk.Text(window)
-    text.insert(tk.END, report)
-    text.pack()
-
-# Add buttons for these functions to the main menu
-main_menu()
