@@ -1,7 +1,7 @@
-pharmacy inventory management 
+PHARMACY INVENTORY MANAGER
 
 Introduction
-The Pharmacy Inventory Manager is a system designed to help pharmacies manage their inventory efficiently. It allows pharmacists to track stock levels, manage orders, and generate reports. This project is developed using Django and SQLite3.
+The Pharmacy Inventory Manager is a system designed to help pharmacies manage their inventory efficiently. It allows pharmacists to track stock levels, manage orders, and generate reports. This project is developed using Python, Tkinter, and SQLite3.
 
 Author(s): kateeba peter(s8int)
 
