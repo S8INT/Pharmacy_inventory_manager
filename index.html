@@ -4,64 +4,183 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pharmacy Inventory Manager</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
     <style>
         body {
-            font-family: Arial, sans-serif;
+            font-family: 'Roboto', sans-serif;
             margin: 0;
             padding: 0;
             background-color: #f4f4f4;
+            scroll-behavior: smooth;
         }
-        .header {
-            background-color: #5D6D7E;
-            color: #fff;
-            padding: 10px 0;
-            text-align: center;
-        }
-        .container {
-            padding: 20px;
-            text-align: center;
-        }
-        .button {
-            background-color: #5D6D7E;
+
+        header {
+            background-color: #333;
             color: white;
-            padding: 10px 20px;
+            padding: 1rem;
             text-align: center;
+        }
+
+        nav ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        nav ul li {
+            display: inline;
+            margin: 0 1rem;
+        }
+
+        nav ul li a {
+            color: white;
             text-decoration: none;
-            display: inline-block;
-            margin-top: 20px;
+            transition: color 0.3s ease;
+        }
+
+        nav ul li a:hover {
+            color: #ff6600;
+        }
+
+        .cover {
+            background: url('cover-image.jpg') no-repeat center center/cover;
+            height: 80vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: blue;
+            text-align: center;
+            padding: 2rem;
+        }
+
+        .cover h1 {
+            font-size: 4rem;
+            margin: 0;
+        }
+
+        .cover p {
+            font-size: 1.5rem;
+            margin: 1rem 0;
+        }
+
+        .cover .btn {
+            background-color: #ff6600;
+            color: white;
+            padding: 1rem 2rem;
+            border: none;
             border-radius: 5px;
+            text-decoration: none;
+            font-size: 1rem;
+            transition: background-color 0.3s ease;
         }
-        .button:hover {
-            background-color: #4A5A69;
+
+        .cover .btn:hover {
+            background-color: #ff3300;
         }
-        .features {
-            text-align: left;
-            max-width: 800px;
-            margin: 20px auto;
+
+        main {
+            padding: 2rem;
         }
-        .features h3 {
-            color: #333;
+
+        section {
+            margin-bottom: 2rem;
         }
-        .features p {
-            color: #666;
+
+        footer {
+            background-color: #333;
+            color: white;
+            text-align: center;
+            padding: 1rem;
+            position: relative;
+            width: 100%;
+        }
+
+        .video-container {
+            position: relative;
+            padding-bottom: 50%;
+            height: 0;
+            overflow: hidden;
+            max-width: 80%;
+            background: #000;
+            margin: 0 auto 1rem;
+        }
+
+        .video-container iframe {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        @keyframes fadeIn {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
     </style>
 </head>
 <body>
-    <div class="header">
+    <header>
+        <nav>
+            <ul>
+                <li><a href="#features">Features</a></li>
+                <li><a href="#about">About</a></li>
+                <li><a href="#demo">Demo</a></li>
+                <li><a href="#contact">Contact</a></li>
+            </ul>
+        </nav>
+    </header>
+    <div class="cover">
         <h1>Pharmacy Inventory Manager</h1>
+        <p>Efficiently manage your pharmacy inventory with ease.</p>
+        <a href="https://deployed-project-url.com" class="btn">View Application</a>
     </div>
-    <div class="container">
-        <h2>Welcome to the Pharmacy Inventory Manager</h2>
-        <p>Manage your pharmacy inventory with ease and efficiency.</p>
-        <a href="#features" class="button">Learn More</a>
-    </div>
-    <div class="features" id="features">
-        <h3>Features:</h3>
-        <p>- Track inventory levels and stock status</p>
-        <p>- Manage prescriptions and patient information</p>
-        <p>- Generate reports and analytics</p>
-        <p>- Easy-to-use interface with secure login system</p>
-    </div>
+    <main>
+        <section id="features">
+            <h2>Features</h2>
+            <ul>
+                <li>Track Inventory Levels</li>
+                <li>Automated Alerts for Low Stock</li>
+                <li>Expiration Date Tracking</li>
+                <li>Comprehensive Reporting</li>
+            </ul>
+        </section>
+        <section id="about">
+            <h2>About</h2>
+            <p>The Pharmacy Inventory Manager project was inspired by a real-world problem faced by many pharmacies. During my time working close with my friends, I noticed how challenging it was to keep track of inventory manually.
+  This led to frequent stockouts and overstock situations, impacting the quality of service provided to customers. I decided to create a solution that would automate inventory management, making it more efficient and reliable
+  for my friends to forcus on service delivery rather than worrying about the stock taking and all the frastruations that come with it.</p>
+            <p>This project was developed over the course of 1 month as a Portfolio Project for ALX Software engineering end of foundations. It showcases the skills and knowledge I have gained in software development and project management.</p>
+            <p>Team Members:</p>
+            <ul>
+                <li><a href="https://www.linkedin.com/in/your-profile" target="_blank">LinkedIn</a> | <a href="https://github.com/your-profile" target="_blank">GitHub</a> | <a href="https://twitter.com/your-profile" target="_blank">Twitter</a></li>
+                <!-- Add more team members as needed -->
+            </ul>
+            <p>Project Repository: <a href="https://github.com/your-username/pharmacy-inventory-manager" target="_blank">GitHub</a></p>
+        </section>
+        <section id="demo">
+            <h2>Demo</h2>
+            <div class="video-container">
+                <iframe src="https://www.youtube.com/embed/your_video_id" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+            </div>
+            <p>Watch the full demo on <a href="https://www.youtube.com/watch?v=your_video_id" target="_blank">YouTube</a>.</p>
+        </section>
+        <section id="team-video">
+            <h2>Team Introduction and Project Story</h2>
+            <div class="video-container">
+                <iframe src="https://www.youtube.com/embed/your_intro_video_id" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+            </div>
+            <p>Watch our introduction video on <a href="https://www.youtube.com/watch?v=your_intro_video_id" target="_blank">YouTube</a>.</p>
+        </section>
+        <section id="contact">
+            <h2>Contact</h2>
+            <p>For more information, contact us at <a href="mailto:info@pharmacyinventorymanager.com">info@pharmacyinventorymanager.com</a>.</p>
+        </section>
+    </main>
+    <footer>
+        <p>&copy; 2024 Pharmacy Inventory Manager. All rights reserved.</p>
+    </footer>
 </body>
 </html>
